@@ -124,3 +124,4 @@ This framework is suitable for autonomous navigation and control tasks in:
 ---
 
 For detailed implementation, refer to the respective Kalman Filter classes (`QcarEKF` and `GyroKF`) and the main control loop logic.
+![State estimation](EKF.png)
