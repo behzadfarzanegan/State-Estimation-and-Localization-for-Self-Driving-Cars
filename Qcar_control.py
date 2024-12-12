@@ -260,7 +260,159 @@ def controlLoop():
             continue
 
 
+if __name__ == '__main__':
 
+    #region : Setup scopes
+    if IS_PHYSICAL_QCAR:
+        fps = 10
+    else:
+        fps = 30
+    # Scope for monitoring speed controller
+    speedScope = MultiScope(
+        rows=3,
+        cols=1,
+        title='Vehicle Speed Control',
+        fps=fps
+    )
+    speedScope.addAxis(
+        row=0,
+        col=0,
+        timeWindow=tf,
+        yLabel='Vehicle Speed [m/s]',
+        yLim=(0, 1)
+    )
+    speedScope.axes[0].attachSignal(name='v_meas', width=2)
+    speedScope.axes[0].attachSignal(name='v_ref')
+
+    speedScope.addAxis(
+        row=1,
+        col=0,
+        timeWindow=tf,
+        yLabel='Speed Error [m/s]',
+        yLim=(-0.5, 0.5)
+    )
+    speedScope.axes[1].attachSignal()
+
+    speedScope.addAxis(
+        row=2,
+        col=0,
+        timeWindow=tf,
+        xLabel='Time [s]',
+        yLabel='Throttle Command [%]',
+        yLim=(-0.3, 0.3)
+    )
+    speedScope.axes[2].attachSignal()
+
+    # Scope for monitoring steering controller
+    if enableSteeringControl:
+        steeringScope = MultiScope(
+            rows=4,
+            cols=2,
+            title='Vehicle Steering Control',
+            fps=fps
+        )
+
+        steeringScope.addAxis(
+            row=0,
+            col=0,
+            timeWindow=tf,
+            yLabel='x Position [m]',
+            yLim=(-2.5, 2.5)
+        )
+        steeringScope.axes[0].attachSignal(name='x_meas')
+        steeringScope.axes[0].attachSignal(name='x_ref')
+
+        steeringScope.addAxis(
+            row=1,
+            col=0,
+            timeWindow=tf,
+            yLabel='y Position [m]',
+            yLim=(-1, 5)
+        )
+        steeringScope.axes[1].attachSignal(name='y_meas')
+        steeringScope.axes[1].attachSignal(name='y_ref')
+
+        steeringScope.addAxis(
+            row=2,
+            col=0,
+            timeWindow=tf,
+            yLabel='Heading Angle [rad]',
+            yLim=(-3.5, 3.5)
+        )
+        steeringScope.axes[2].attachSignal(name='th_meas')
+        steeringScope.axes[2].attachSignal(name='th_ref')
+
+        steeringScope.addAxis(
+            row=3,
+            col=0,
+            timeWindow=tf,
+            yLabel='Steering Angle [rad]',
+            yLim=(-0.6, 0.6)
+        )
+        steeringScope.axes[3].attachSignal()
+        steeringScope.axes[3].xLabel = 'Time [s]'
+
+        steeringScope.addXYAxis(
+            row=0,
+            col=1,
+            rowSpan=4,
+            xLabel='x Position [m]',
+            yLabel='y Position [m]',
+            xLim=(-2.5, 2.5),
+            yLim=(-1, 5)
+        )
+
+        im = cv2.imread(
+            images.SDCS_CITYSCAPE,
+            cv2.IMREAD_GRAYSCALE
+        )
+
+        steeringScope.axes[4].attachImage(
+            scale=(-0.002035, 0.002035),
+            offset=(1125,2365),
+            rotation=180,
+            levels=(0, 255)
+        )
+        steeringScope.axes[4].images[0].setImage(image=im)
+
+        referencePath = pg.PlotDataItem(
+            pen={'color': (85,168,104), 'width': 2},
+            name='Reference'
+        )
+        steeringScope.axes[4].plot.addItem(referencePath)
+        referencePath.setData(waypointSequence[0, :],waypointSequence[1, :])
+
+        steeringScope.axes[4].attachSignal(name='Estimated', width=2)
+
+        arrow = pg.ArrowItem(
+            angle=180,
+            tipAngle=60,
+            headLen=10,
+            tailLen=10,
+            tailWidth=5,
+            pen={'color': 'w', 'fillColor': [196,78,82], 'width': 1},
+            brush=[196,78,82]
+        )
+        arrow.setPos(initialPose[0], initialPose[1])
+        steeringScope.axes[4].plot.addItem(arrow)
+    #endregion
+
+    #region : Setup control thread, then run experiment
+    controlThread = Thread(target=controlLoop)
+    controlThread.start()
+
+    try:
+        while controlThread.is_alive() and (not KILL_THREAD):
+            MultiScope.refreshAll()
+            time.sleep(0.01)
+    finally:
+        KILL_THREAD = True
+    #endregion
+    if not IS_PHYSICAL_QCAR:
+        qlabs_setup.terminate()
+
+    input('Experiment complete. Press any key to exit...')
+#endregion
 
 
 
